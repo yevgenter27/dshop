@@ -9,6 +9,7 @@ def read_from_hdfs_with_spark(batch, current_date, df_name, df_format):
     spark = SparkSession.builder \
         .config('spark.driver.extraClassPath'
                 , spark_driver_path) \
+        .master('local')\
         .getOrCreate()
 
     return spark.read.load(os.path.join("/", 'datalale', batch, str(current_date), df_name + df_format)

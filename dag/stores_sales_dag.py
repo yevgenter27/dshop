@@ -18,6 +18,7 @@ hdfs_conn = BaseHook.get_connection('dshop_hdfs')
 gp_conn = BaseHook.get_connection('dshop_gp')
 
 hdfs_url = 'http://' + hdfs_conn.host + ":" + str(hdfs_conn.port)
+spark_driver_path = gp_conn.get_extra().get('extra__jdbc__drv_path')
 
 gp_url = 'jdbc:postgresql://' + gp_conn.host + ':' + str(gp_conn.port) + '/' + gp_conn.schema
 gp_properties = {
@@ -44,13 +45,18 @@ def silver_preparation():
     current_date = datetime.today().date()
     all_dfs = dimension_dfs + fact_dfs
     for df in all_dfs:
-        bronze_df = read_from_hdfs_with_spark(hdfs_url, bronze_batch, current_date, df, '.csv')
+        bronze_df = read_from_hdfs_with_spark(bronze_batch, current_date, df, '.csv')
         delete_duplicate(bronze_df)
         write_to_hdfs_with_spark(silver_batch, bronze_df)
 
 
 def gold_preparation():
-    spark = SparkSession.builder.master('local').getOrCreate()
+    spark = SparkSession.builder \
+        .config('spark.driver.extraClassPath'
+                , spark_driver_path) \
+        .master('local')\
+        .getOrCreate()
+
     fact_stores_sales_df_name = 'fact_stores_sales'
     orders_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'orders'))
     stores_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'stores'))

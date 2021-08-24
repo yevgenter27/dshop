@@ -2,7 +2,7 @@ import requests
 import json
 from airflow.hooks.base_hook import BaseHook
 
-api_conn = BaseHook.get_connection('dshop_hdfs')
+api_conn = BaseHook.get_connection('dshop_oos_api')
 api_base_url = "https://" + api_conn.host
 
 def download_from_api(date):

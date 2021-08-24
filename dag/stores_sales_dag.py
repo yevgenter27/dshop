@@ -89,18 +89,8 @@ def gold_preparation():
         .withColumn("products_qty", F.col('products_qty').cast(IntegerType())) \
         .withColumn("date", F.col('date').cast(DateType()))
 
-    try:
-        fact_store_sales_df = SQLContext.read.format('io.pivotal.greenplum.spark.GreenplumRelationProvider').options(
-            url='jdbc:postgresql://docker_gpdb_1/basic_db',
-            dbtable='basictable',
-            user='gpadmin',
-            password='pivotal',
-            driver='org.postgresql.Driver',
-            partitionColumn='id').load()
-        fact_store_sales_df.unionByName(fact_store_sales_delta)
-        fact_store_sales_df.write.jdbc(gp_url, table='films', properties=gp_properties, mode='overwrite')
-    except Exception:
-        fact_store_sales_delta.write.parquet(os.path.join("/", gold_batch, fact_stores_sales_df_name), mode='overwrite')
+    fact_store_sales_delta.write.jdbc(gp_url, table=fact_stores_sales_df_name, properties=gp_properties, mode='append')
+    fact_store_sales_delta.write.parquet(os.path.join("/", gold_batch, fact_stores_sales_df_name), mode='append')
 
 
 dag = DAG(

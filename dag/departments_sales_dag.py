@@ -79,12 +79,8 @@ def gold_preparation():
         .withColumn("products_qty", F.col('count').cast(IntegerType()))\
         .withColumn("date", F.col('date').cast(DateType()))
 
-    try:
-        fact_departments_sales_df = spark.read.parquet(os.path.join("/", silver_batch, fact_departments_sales_df_name))
-        fact_departments_sales_df.unionByName(fact_departments_df_delta)
-        fact_departments_sales_df.write.parquet(os.path.join("/", gold_batch, fact_departments_sales_df_name), mode='overwrite')
-    except Exception:
-        fact_departments_df_delta.write.parquet(os.path.join("/", gold_batch, fact_departments_sales_df_name), mode='overwrite')
+    fact_departments_df_delta.write.jdbc(gp_url, table=fact_departments_sales_df_name, properties=gp_properties, mode='append')
+    fact_departments_df_delta.write.parquet(os.path.join("/", 'dshop', gold_batch, fact_departments_sales_df_name), mode='append')
 
 
 dag = DAG(

@@ -6,7 +6,7 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.operators.dummy_operator import DummyOperator
 from pyspark.sql.types import StringType, IntegerType, DateType
 from pyspark.sql import SparkSession
-from functions.custom_spark import read_from_hdfs_with_spark, delete_duplicate, write_to_hdfs_with_spark
+from functions.spark_rw import read_from_hdfs_with_spark, delete_duplicate, write_to_hdfs_with_spark
 from functions.load_functions import upload_dims_operators, upload_facts_operators
 from airflow.hooks.base_hook import BaseHook
 
@@ -63,10 +63,10 @@ def silver_preparation():
 def gold_preparation():
     spark = SparkSession.builder.master('local').getOrCreate()
     fact_stores_sales_df_name = 'fact_stores_sales'
-    orders_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'dshop', 'orders'))
-    stores_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'dshop', 'stores'))
-    store_types_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'dshop', 'store_types'))
-    location_areas_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'dshop', 'location_areas'))
+    orders_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'orders'))
+    stores_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'stores'))
+    store_types_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'store_types'))
+    location_areas_df = spark.read.parquet(os.path.join("/", 'datalake', silver_batch, 'location_areas'))
 
     stores_df = stores_df.join(store_types_df, stores_df['store_type_id'] == store_types_df['store_type_id'], 'left') \
         .select(stores_df['*'], store_types_df['type'])
@@ -97,7 +97,7 @@ def gold_preparation():
         .withColumn("date", F.col('date').cast(DateType()))
 
     fact_store_sales_delta.write.jdbc(gp_url, table=fact_stores_sales_df_name, properties=gp_properties, mode='append')
-    fact_store_sales_delta.write.parquet(os.path.join("/", 'datalake', gold_batch, 'dshop', fact_stores_sales_df_name), mode='append')
+    fact_store_sales_delta.write.parquet(os.path.join("/", 'datalake', gold_batch, fact_stores_sales_df_name), mode='append')
 
 
 dag = DAG(

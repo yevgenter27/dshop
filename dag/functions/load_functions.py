@@ -9,7 +9,7 @@ from airflow.hooks.base_hook import BaseHook
 
 hdfs_conn = BaseHook.get_connection('dshop_hdfs')
 pg_conn = BaseHook.get_connection('dshop_postgres')
-hdfs_url = 'http://' + hdfs_conn.host + ":" + str(hdfs_conn.port)
+hdfs_url = 'http://' + str(hdfs_conn.host) + ":" + str(hdfs_conn.port)
 hdfs_user = hdfs_conn.login
 pg_creds = {
     'host': pg_conn.host,

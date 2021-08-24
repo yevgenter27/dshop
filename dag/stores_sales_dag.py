@@ -10,7 +10,6 @@ from functions.spark_rw import read_from_hdfs_with_spark, delete_duplicate, writ
 from functions.load_functions import upload_dims_operators, upload_facts_operators
 from airflow.hooks.base_hook import BaseHook
 
-project_batch = 'dshop'
 bronze_batch = 'bronze'
 silver_batch = 'silver'
 gold_batch = 'gold'
@@ -19,7 +18,6 @@ hdfs_conn = BaseHook.get_connection('dshop_hdfs')
 gp_conn = BaseHook.get_connection('dshop_gp')
 
 hdfs_url = 'http://' + hdfs_conn.host + ":" + str(hdfs_conn.port)
-hdfs_user = hdfs_conn.login
 
 gp_url = 'jdbc:postgresql://' + gp_conn.host + ':' + str(gp_conn.port) + '/' + gp_conn.schema
 gp_properties = {

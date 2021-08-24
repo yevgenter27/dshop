@@ -19,7 +19,6 @@ silver_batch = 'silver'
 gold_batch = 'gold'
 
 hdfs_conn = BaseHook.get_connection('dshop_hdfs')
-pg_conn = BaseHook.get_connection('dshop_postgres')
 gp_conn = BaseHook.get_connection('dshop_gp')
 
 hdfs_url = 'http://' + hdfs_conn.host + ":" + str(hdfs_conn.port)

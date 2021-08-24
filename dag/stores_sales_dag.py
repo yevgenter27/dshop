@@ -125,7 +125,7 @@ def gold_preparation():
 
 
 dag = DAG(
-    dag_id="stores sales dag",
+    dag_id="stores_sales_dag",
     description="Define and upload daily stores sales information",
     start_date=datetime(2021, 8, 1, 14, 30),
     end_date=datetime(2022, 8, 1, 14, 30),

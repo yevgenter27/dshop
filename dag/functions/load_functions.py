@@ -4,9 +4,22 @@ import psycopg2
 from datetime import datetime
 from airflow.operators.python_operator import PythonOperator
 from hdfs import InsecureClient
+from airflow.hooks.base_hook import BaseHook
 
 
-def upload_dims_operators(dag, dimension_dfs, pg_creds, hdfs_url):
+hdfs_conn = BaseHook.get_connection('dshop_hdfs')
+pg_conn = BaseHook.get_connection('dshop_postgres')
+hdfs_url = 'http://' + hdfs_conn.host + ":" + hdfs_conn.port
+hdfs_user = hdfs_conn.login
+pg_creds = {
+    'host': pg_conn.host,
+    'port': pg_conn.port,
+    'user': pg_conn.login,
+    'password': pg_conn.password,
+    'database': 'dshop_bu'
+}
+
+def upload_dims_operators(dag, dimension_dfs):
     operators = []
     for df in dimension_dfs:
         operator = PythonOperator(
@@ -19,7 +32,7 @@ def upload_dims_operators(dag, dimension_dfs, pg_creds, hdfs_url):
     return operators
 
 
-def upload_facts_operators(dag, fact_dfs, pg_creds, hdfs_url):
+def upload_facts_operators(dag, fact_dfs):
     operators = []
     for df in fact_dfs:
         operator = PythonOperator(
@@ -32,8 +45,8 @@ def upload_facts_operators(dag, fact_dfs, pg_creds, hdfs_url):
     return operators
 
 
-def upload_dm_to_bronze(pg_creds, hdfs_url, df_name):
-    client = InsecureClient(hdfs_url, user="user")
+def upload_dm_to_bronze(df_name):
+    client = InsecureClient(hdfs_url, hdfs_user)
     current_date = datetime.today().date()
     with psycopg2.connect(**pg_creds) as pg_connection:
         cursor = pg_connection.cursor()
@@ -41,8 +54,8 @@ def upload_dm_to_bronze(pg_creds, hdfs_url, df_name):
             cursor.copy_expert(f"COPY {df_name} TO STDOUT WITH HEADER CSV", csv_file)
 
 
-def upload_fact_to_bronze(pg_creds, hdfs_url, df_name):
-    client = InsecureClient(hdfs_url, user="user")
+def upload_fact_to_bronze(df_name):
+    client = InsecureClient(hdfs_url, hdfs_user)
     current_date_as_str = str(datetime.today().date())
     with psycopg2.connect(**pg_creds) as pg_connection:
         cursor = pg_connection.cursor()

@@ -6,12 +6,11 @@ from datetime import datetime
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.dummy_operator import DummyOperator
-from hdfs import InsecureClient
 from pyspark.sql.types import StringType, IntegerType, DateType
 from pyspark.sql import SparkSession
 from pyspark.sql import SQLContext
-
 from functions.custom_spark import read_from_hdfs_with_spark, delete_duplicate, write_to_hdfs_with_spark
+from functions.load_functions import upload_dims_operators, upload_facts_operators
 
 project_batch = 'dshop'
 bronze_batch = 'bronze'
@@ -45,26 +44,6 @@ fact_dfs = [
 ]
 
 
-def upload_dimensions_to_bronze():
-    client = InsecureClient(hdfs_url, user="user")
-    current_date = datetime.today().date()
-    for df in dimension_dfs:
-        with psycopg2.connect(**pg_creds) as pg_connection:
-            cursor = pg_connection.cursor()
-            with client.write(os.path.join("/", bronze_batch, str(current_date), df + '.csv')) as csv_file:
-                cursor.copy_expert(f"COPY {df} TO STDOUT WITH HEADER CSV", csv_file)
-
-
-def upload_facts_to_bronze():
-    client = InsecureClient(hdfs_url, user="user")
-    current_date_as_str = str(datetime.today().date())
-    for df in fact_dfs:
-        with psycopg2.connect(**pg_creds) as pg_connection:
-            cursor = pg_connection.cursor()
-            with client.write(os.path.join("/", bronze_batch, current_date_as_str, df + '.csv')) as csv_file:
-                cursor.copy_expert(f"COPY (select * from {df} where order_data={current_date_as_str}) TO STDOUT WITH HEADER CSV", csv_file)
-
-
 def silver_preparation():
     current_date = datetime.today().date()
     all_dfs = dimension_dfs + fact_dfs
@@ -82,32 +61,32 @@ def gold_preparation():
     store_types_df = spark.read.parquet(os.path.join("/", silver_batch, 'store_types'))
     location_areas_df = spark.read.parquet(os.path.join("/", silver_batch, 'location_areas'))
 
-    stores_df = stores_df.join(store_types_df, stores_df['store_type_id'] == store_types_df['store_type_id'], 'left')\
-                         .select(stores_df['*'], store_types_df['type'])
-    stores_df = stores_df.join(location_areas_df, stores_df['location_area_id'] == location_areas_df['area_id'], 'left')\
-                         .select(stores_df['*'], location_areas_df['area'])
+    stores_df = stores_df.join(store_types_df, stores_df['store_type_id'] == store_types_df['store_type_id'], 'left') \
+        .select(stores_df['*'], store_types_df['type'])
+    stores_df = stores_df.join(location_areas_df, stores_df['location_area_id'] == location_areas_df['area_id'], 'left') \
+        .select(stores_df['*'], location_areas_df['area'])
 
     orders_qty_df = orders_df.dropDuplicates(F.col('order_id')).groupBy(F.col('store_id')).count()
-    orders_qty_df = orders_qty_df\
-        .withColumn("store_id", F.col('store_id').cast(StringType()))\
+    orders_qty_df = orders_qty_df \
+        .withColumn("store_id", F.col('store_id').cast(StringType())) \
         .withColumn("quantity", F.col('quantity').cast(IntegerType()))
     products_qty_df = orders_qty_df.groupBy(F.col('store_id')).sum(F.col('quantity'))
     clients_qty_df = orders_df.dropDuplicates(F.col('client_id')).groupBy(F.col('store_id')).count()
 
-    stores_df = stores_df.join(orders_qty_df, stores_df['store_id'] == orders_qty_df['store_id'], 'left')\
-                         .select(stores_df['*'], orders_qty_df['count'].alias('orders_qty'))
-    stores_df = stores_df.join(products_qty_df, stores_df['store_id'] == products_qty_df['store_id'], 'left')\
-                         .select(stores_df['*'], products_qty_df['count'].alias('products_qty'))
-    stores_sales_df_delta = stores_df.join(clients_qty_df, stores_df['store_id'] == clients_qty_df['store_id'], 'left')\
-                         .select(stores_df['*'], clients_qty_df['count'].alias('clients_qty'))
+    stores_df = stores_df.join(orders_qty_df, stores_df['store_id'] == orders_qty_df['store_id'], 'left') \
+        .select(stores_df['*'], orders_qty_df['count'].alias('orders_qty'))
+    stores_df = stores_df.join(products_qty_df, stores_df['store_id'] == products_qty_df['store_id'], 'left') \
+        .select(stores_df['*'], products_qty_df['count'].alias('products_qty'))
+    stores_sales_df_delta = stores_df.join(clients_qty_df, stores_df['store_id'] == clients_qty_df['store_id'], 'left') \
+        .select(stores_df['*'], clients_qty_df['count'].alias('clients_qty'))
 
-    fact_store_sales_delta = stores_sales_df_delta\
-        .withColumn("store_id", F.col('store_id').cast(StringType()))\
-        .withColumn("type", F.col('type').cast(StringType()))\
-        .withColumn("area", F.col('area').cast(StringType()))\
-        .withColumn("orders_qty", F.col('orders_qty').cast(IntegerType()))\
-        .withColumn("clients_qty", F.col('clients_qty').cast(IntegerType()))\
-        .withColumn("products_qty", F.col('products_qty').cast(IntegerType()))\
+    fact_store_sales_delta = stores_sales_df_delta \
+        .withColumn("store_id", F.col('store_id').cast(StringType())) \
+        .withColumn("type", F.col('type').cast(StringType())) \
+        .withColumn("area", F.col('area').cast(StringType())) \
+        .withColumn("orders_qty", F.col('orders_qty').cast(IntegerType())) \
+        .withColumn("clients_qty", F.col('clients_qty').cast(IntegerType())) \
+        .withColumn("products_qty", F.col('products_qty').cast(IntegerType())) \
         .withColumn("date", F.col('date').cast(DateType()))
 
     try:
@@ -132,46 +111,35 @@ dag = DAG(
     schedule_interval="@daily"
 )
 
-t1 = PythonOperator(
-    task_id="upload_dim_dfs_to_bronze",
-    description="Upload dimension dfs from PostgresQL to HDFS",
-    dag=dag,
-    python_callable=upload_dimensions_to_bronze,
-    provide_context=True
-)
 
-t2 = PythonOperator(
-    task_id="upload_fact_dfs_to_bronze",
-    description="Upload fact dfs from PostgresQL to HDFS",
-    dag=dag,
-    python_callable=upload_facts_to_bronze,
-    provide_context=True
-)
-
-t3 = PythonOperator(
+silver_preparation_task = PythonOperator(
     task_id="silver_preparation",
     description="Formatting dataframes and upload to HDFS",
     dag=dag,
     python_callable=silver_preparation,
-    provide_context=True
+    # provide_context=True
 )
 
-t4 = PythonOperator(
+gold_preparation_task = PythonOperator(
     task_id="gold_preparation",
     description="Define and upload daily stores sales information",
     dag=dag,
     python_callable=gold_preparation,
-    provide_context=True
+    # provide_context=True
 )
 
 dummy_start = DummyOperator(
-    task_id="start",
+    task_id="start_process",
     dag=dag
 )
 
 dummy_finish = DummyOperator(
-    task_id="finish",
+    task_id="finish_process",
     dag=dag
 )
 
-dummy_start >> t1 >> t2 >> t3 >> t4 >> dummy_finish
+dummy_start >> [*upload_dims_operators(dag, dimension_dfs, pg_creds, hdfs_url),
+                    *upload_facts_operators(dag, fact_dfs, pg_creds, hdfs_url)] \
+            >> silver_preparation_task \
+            >> gold_preparation_task >> \
+dummy_finish

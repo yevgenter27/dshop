@@ -1,6 +1,5 @@
 import os.path
 import json
-import psycopg2
 import pyspark.sql.functions as F
 from datetime import datetime
 from airflow import DAG
@@ -10,8 +9,7 @@ from pyspark.sql.types import StringType, IntegerType, DateType
 from hdfs import InsecureClient
 from pyspark.sql import SparkSession
 from functions.custom_spark import read_from_hdfs_with_spark, delete_duplicate, write_to_hdfs_with_spark
-
-
+from functions.load_functions import upload_dims_operators
 from functions.api_oos import download_from_api
 
 hdfs_url = "http://127.0.0.1:50070"
@@ -36,31 +34,17 @@ dimension_dfs = [
     'products'
 ]
 
-fact_dfs = [
-    'out_of_stock'
-]
+fact_oos_df = 'out_of_stock'
 
 
-def upload_dimension_dfs_to_bronze():
-    client = InsecureClient(hdfs_url, user="user")
-    current_date = datetime.today().date()
-    for df in dimension_dfs:
-        with psycopg2.connect(**pg_creds) as pg_connection:
-            cursor = pg_connection.cursor()
-            with client.write(os.path.join("/", bronze_batch, str(current_date), df + '.csv')) as csv_file:
-                cursor.copy_expert(f"COPY {df} TO STDOUT WITH HEADER CSV", csv_file)
-
-
-def upload_fact_dfs_to_bronze():
+def upload_fact_df_to_bronze():
     date = datetime.today().date()
     data = download_from_api(date)
     current_date = datetime.today().date()
     client = InsecureClient(hdfs_url, user='user')
-
-    for df in fact_dfs:
-        client.makedirs(os.path.join("/", bronze_batch, str(current_date)))
-        client.write(os.path.join("/", bronze_batch, str(current_date), df + '.json'), data=json.dumps(data),
-                     encoding='utf-8', overwrite=True)
+    client.makedirs(os.path.join("/", bronze_batch, str(current_date)))
+    client.write(os.path.join("/", bronze_batch, str(current_date), fact_oos_df + '.json'), data=json.dumps(data),
+                 encoding='utf-8', overwrite=True)
 
 
 def silver_preparation():
@@ -70,9 +54,8 @@ def silver_preparation():
         delete_duplicate(bronze_df)
         write_to_hdfs_with_spark(silver_batch, bronze_df)
 
-    for df in fact_dfs:
-        bronze_df = read_from_hdfs_with_spark(hdfs_url, bronze_batch, current_date, df, '.json')
-        write_to_hdfs_with_spark(silver_batch, bronze_df)
+    bronze_oos_df = read_from_hdfs_with_spark(hdfs_url, bronze_batch, current_date, fact_oos_df, '.json')
+    write_to_hdfs_with_spark(silver_batch, bronze_oos_df)
 
 
 def gold_preparation():
@@ -112,36 +95,28 @@ dag = DAG(
     schedule_interval="@daily"
 )
 
-t1 = PythonOperator(
-    task_id="upload_dim_dfs_to_bronze",
-    description="Upload dimension dfs from PostgresQL to HDFS",
+upload_oos_to_bronze_task = PythonOperator(
+    task_id="upload_oos_fc",
+    description=f"Upload oos df from PostgresQL to bronze HDFS",
     dag=dag,
-    python_callable=upload_dimension_dfs_to_bronze,
-    provide_context=True
+    python_callable=upload_fact_df_to_bronze,
+    # provide_context=True
 )
 
-t2 = PythonOperator(
-    task_id="upload_fact_dfs_to_bronze",
-    description="Upload fact dfs from PostgresQL to HDFS",
-    dag=dag,
-    python_callable=upload_fact_dfs_to_bronze,
-    provide_context=True
-)
-
-t3 = PythonOperator(
+silver_preparation_task = PythonOperator(
     task_id="silver_preparation",
     description="Formatting dataframes and upload to HDFS",
     dag=dag,
     python_callable=silver_preparation,
-    provide_context=True
+    # provide_context=True
 )
 
-t4 = PythonOperator(
+gold_preparation_task = PythonOperator(
     task_id="gold_preparation",
-    description="Define and upload daily stores sales information",
+    description="Define and upload daily departments sales information",
     dag=dag,
     python_callable=gold_preparation,
-    provide_context=True
+    # provide_context=True
 )
 
 dummy_start = DummyOperator(
@@ -154,4 +129,7 @@ dummy_finish = DummyOperator(
     dag=dag
 )
 
-dummy_start >> t1 >> t2 >> t3 >> t4 >> dummy_finish
+dummy_start >> [*upload_dims_operators(dag, dimension_dfs, pg_creds, hdfs_url), upload_oos_to_bronze_task] \
+            >> silver_preparation_task \
+            >> gold_preparation_task >> \
+dummy_finish

@@ -48,5 +48,5 @@ def upload_fact_to_bronze(pg_creds, hdfs_url, df_name):
         cursor = pg_connection.cursor()
         with client.write(os.path.join("/", 'dshop', 'bronze', current_date_as_str, df_name + '.csv'), overwrite=True) as csv_file:
             cursor.copy_expert(
-                f"COPY (select * from {df_name} where order_data='{current_date_as_str}') TO STDOUT WITH HEADER CSV",
+                f"COPY (select * from {df_name} where order_date='{current_date_as_str}') TO STDOUT WITH HEADER CSV",
                 csv_file)

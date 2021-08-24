@@ -42,8 +42,8 @@ def upload_fact_df_to_bronze():
     data = download_from_api(date)
     current_date = datetime.today().date()
     client = InsecureClient(hdfs_url, user='user')
-    client.makedirs(os.path.join("/", bronze_batch, str(current_date)))
-    client.write(os.path.join("/", bronze_batch, str(current_date), fact_oos_df + '.json'), data=json.dumps(data),
+    client.makedirs(os.path.join("/", 'dshop', bronze_batch, str(current_date)))
+    client.write(os.path.join("/", 'dshop', bronze_batch, str(current_date), fact_oos_df + '.json'), data=json.dumps(data),
                  encoding='utf-8', overwrite=True)
 
 
@@ -116,12 +116,12 @@ gold_preparation_task = PythonOperator(
 )
 
 dummy_start = DummyOperator(
-    task_id="start",
+    task_id="start_process",
     dag=dag
 )
 
 dummy_finish = DummyOperator(
-    task_id="finish",
+    task_id="finish_process",
     dag=dag
 )
 

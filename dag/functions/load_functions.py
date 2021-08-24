@@ -37,7 +37,7 @@ def upload_dm_to_bronze(pg_creds, hdfs_url, df_name):
     current_date = datetime.today().date()
     with psycopg2.connect(**pg_creds) as pg_connection:
         cursor = pg_connection.cursor()
-        with client.write(os.path.join("/", 'bronze', str(current_date), df_name + '.csv')) as csv_file:
+        with client.write(os.path.join("/", 'bronze', str(current_date), df_name + '.csv'), overwrite=True) as csv_file:
             cursor.copy_expert(f"COPY {df_name} TO STDOUT WITH HEADER CSV", csv_file)
 
 
@@ -46,7 +46,7 @@ def upload_fact_to_bronze(pg_creds, hdfs_url, df_name):
     current_date_as_str = str(datetime.today().date())
     with psycopg2.connect(**pg_creds) as pg_connection:
         cursor = pg_connection.cursor()
-        with client.write(os.path.join("/", 'bronze', current_date_as_str, df_name + '.csv')) as csv_file:
+        with client.write(os.path.join("/", 'bronze', current_date_as_str, df_name + '.csv'), overwrite=True) as csv_file:
             cursor.copy_expert(
                 f"COPY (select * from {df_name} where order_data={current_date_as_str}) TO STDOUT WITH HEADER CSV",
                 csv_file)

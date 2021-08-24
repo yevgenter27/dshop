@@ -7,7 +7,7 @@ def download_from_api(date):
     req_body = {'date': str(date)}
     token = get_auth_token
     headers = {'Content-type': 'application/json',
-               'Authorization': 'JWT ' + token}
+               'Authorization': 'JWT ' + str(token)}
     response = requests.get(url=req_url, headers=headers, data=json.dumps(req_body))
     return response.json()
 

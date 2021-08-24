@@ -139,7 +139,7 @@ dummy_finish = DummyOperator(
 )
 
 dummy_start >> [*upload_dims_operators(dag, dimension_dfs, pg_creds, hdfs_url),
-                    *upload_facts_operators(dag, fact_dfs, pg_creds, hdfs_url)] \
+                *upload_facts_operators(dag, fact_dfs, pg_creds, hdfs_url)] \
             >> silver_preparation_task \
             >> gold_preparation_task >> \
 dummy_finish

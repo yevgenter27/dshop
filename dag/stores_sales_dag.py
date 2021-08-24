@@ -133,7 +133,7 @@ dag = DAG(
 )
 
 t1 = PythonOperator(
-    task_id="upload dim dfs to bronze",
+    task_id="upload_dim_dfs_to_bronze",
     description="Upload dimension dfs from PostgresQL to HDFS",
     dag=dag,
     python_callable=upload_dimensions_to_bronze,
@@ -141,7 +141,7 @@ t1 = PythonOperator(
 )
 
 t2 = PythonOperator(
-    task_id="upload fact dfs to bronze",
+    task_id="upload_fact_dfs_to_bronze",
     description="Upload fact dfs from PostgresQL to HDFS",
     dag=dag,
     python_callable=upload_facts_to_bronze,
@@ -149,7 +149,7 @@ t2 = PythonOperator(
 )
 
 t3 = PythonOperator(
-    task_id="silver preparation",
+    task_id="silver_preparation",
     description="Formatting dataframes and upload to HDFS",
     dag=dag,
     python_callable=silver_preparation,
@@ -157,7 +157,7 @@ t3 = PythonOperator(
 )
 
 t4 = PythonOperator(
-    task_id="gold preparation",
+    task_id="gold_preparation",
     description="Define and upload daily stores sales information",
     dag=dag,
     python_callable=gold_preparation,

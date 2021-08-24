@@ -19,7 +19,7 @@ hdfs_conn = BaseHook.get_connection('dshop_hdfs')
 pg_conn = BaseHook.get_connection('dshop_postgres')
 gp_conn = BaseHook.get_connection('dshop_gp')
 
-hdfs_url = 'http://' + hdfs_conn.host + ":" + hdfs_conn.port
+hdfs_url = 'http://' + hdfs_conn.host + ":" + str(hdfs_conn.port)
 hdfs_user = hdfs_conn.login
 
 pg_creds = {
@@ -30,7 +30,7 @@ pg_creds = {
     'database': 'dshop_bu'
 }
 
-gp_url = 'jdbc:postgresql://' + gp_conn.host + ':' + gp_conn.port + '/' + gp_conn.schema
+gp_url = 'jdbc:postgresql://' + gp_conn.host + ':' + str(gp_conn.port) + '/' + gp_conn.schema
 gp_properties = {
     'user': gp_conn.login,
     'password': gp_conn.password
@@ -73,12 +73,12 @@ def gold_preparation():
     stores_df = stores_df.join(location_areas_df, stores_df['location_area_id'] == location_areas_df['area_id'], 'left') \
         .select(stores_df['*'], location_areas_df['area'])
 
-    orders_qty_df = orders_df.dropDuplicates(F.col('order_id')).groupBy(F.col('store_id')).count()
+    orders_qty_df = orders_df.dropDuplicates(orders_df.order_id).groupBy(F.col('store_id')).count()
     orders_qty_df = orders_qty_df \
         .withColumn("store_id", F.col('store_id').cast(StringType())) \
         .withColumn("quantity", F.col('quantity').cast(IntegerType()))
-    products_qty_df = orders_qty_df.groupBy(F.col('store_id')).sum(F.col('quantity'))
-    clients_qty_df = orders_df.dropDuplicates(F.col('client_id')).groupBy(F.col('store_id')).count()
+    products_qty_df = orders_qty_df.groupBy(F.col('store_id')).sum(orders_qty_df.quantity)
+    clients_qty_df = orders_df.dropDuplicates(orders_df.client_id).groupBy(F.col('store_id')).count()
 
     stores_df = stores_df.join(orders_qty_df, stores_df['store_id'] == orders_qty_df['store_id'], 'left') \
         .select(stores_df['*'], orders_qty_df['count'].alias('orders_qty'))

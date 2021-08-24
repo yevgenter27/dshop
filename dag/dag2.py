@@ -83,9 +83,9 @@ def gold_preparation():
     location_areas_df = spark.read.parquet(os.path.join("/", silver_batch, 'location_areas'))
 
     stores_df = stores_df.join(store_types_df, stores_df['store_type_id'] == store_types_df['store_type_id'], 'left')\
-        .select(stores_df['*'], store_types_df['type'])
+                         .select(stores_df['*'], store_types_df['type'])
     stores_df = stores_df.join(location_areas_df, stores_df['location_area_id'] == location_areas_df['area_id'], 'left')\
-        .select(stores_df['*'], location_areas_df['area'])
+                         .select(stores_df['*'], location_areas_df['area'])
 
     orders_qty_df = orders_df.dropDuplicates(F.col('order_id')).groupBy(F.col('store_id')).count()
     orders_qty_df = orders_qty_df\
@@ -95,11 +95,11 @@ def gold_preparation():
     clients_qty_df = orders_df.dropDuplicates(F.col('client_id')).groupBy(F.col('store_id')).count()
 
     stores_df = stores_df.join(orders_qty_df, stores_df['store_id'] == orders_qty_df['store_id'], 'left')\
-        .select(stores_df['*'], orders_qty_df['count'].alias('orders_qty'))
+                         .select(stores_df['*'], orders_qty_df['count'].alias('orders_qty'))
     stores_df = stores_df.join(products_qty_df, stores_df['store_id'] == products_qty_df['store_id'], 'left')\
-        .select(stores_df['*'], products_qty_df['count'].alias('products_qty'))
+                         .select(stores_df['*'], products_qty_df['count'].alias('products_qty'))
     stores_sales_df_delta = stores_df.join(clients_qty_df, stores_df['store_id'] == clients_qty_df['store_id'], 'left')\
-        .select(stores_df['*'], clients_qty_df['count'].alias('clients_qty'))
+                         .select(stores_df['*'], clients_qty_df['count'].alias('clients_qty'))
 
     fact_store_sales_delta = stores_sales_df_delta\
         .withColumn("store_id", F.col('store_id').cast(StringType()))\

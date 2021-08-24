@@ -13,7 +13,7 @@ hdfs_url = 'http://' + str(hdfs_conn.host) + ":" + str(hdfs_conn.port)
 hdfs_user = hdfs_conn.login
 pg_creds = {
     'host': pg_conn.host,
-    'port': pg_conn.port,
+    'port': str(pg_conn.port),
     'user': pg_conn.login,
     'password': pg_conn.password,
     'database': 'dshop_bu'
@@ -26,7 +26,7 @@ def upload_dims_operators(dag, dimension_dfs):
             task_id="upload_" + df + "_dm",
             description=f"Upload {df} df from PostgresQL to bronze HDFS",
             python_callable=upload_dm_to_bronze,
-            op_kwargs={"df_name": df, "pg_creds": pg_creds, "hdfs_url": hdfs_url},
+            op_kwargs={"df_name": df},
             dag=dag)
         operators.append(operator)
     return operators
@@ -39,7 +39,7 @@ def upload_facts_operators(dag, fact_dfs):
             task_id="upload_" + df + "_fc",
             description=f"Upload {df} df from PostgresQL to bronze HDFS",
             python_callable=upload_fact_to_bronze,
-            op_kwargs={"df_name": df, "pg_creds": pg_creds, "hdfs_url": hdfs_url},
+            op_kwargs={"df_name": df},
             dag=dag)
         operators.append(operator)
     return operators

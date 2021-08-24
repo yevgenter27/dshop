@@ -25,14 +25,6 @@ gp_conn = BaseHook.get_connection('dshop_gp')
 hdfs_url = 'http://' + hdfs_conn.host + ":" + str(hdfs_conn.port)
 hdfs_user = hdfs_conn.login
 
-pg_creds = {
-    'host': pg_conn.host,
-    'port': pg_conn.port,
-    'user': pg_conn.login,
-    'password': pg_conn.password,
-    'database': 'dshop_bu'
-}
-
 gp_url = 'jdbc:postgresql://' + gp_conn.host + ':' + str(gp_conn.port) + '/' + gp_conn.schema
 gp_properties = {
     'user': gp_conn.login,

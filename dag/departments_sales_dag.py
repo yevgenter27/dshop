@@ -13,7 +13,6 @@ from functions.load_functions import upload_dims_operators
 from functions.api_oos import download_from_api
 from airflow.hooks.base_hook import BaseHook
 
-project_batch = 'dshop'
 bronze_batch = 'bronze'
 silver_batch = 'silver'
 gold_batch = 'gold'
@@ -21,8 +20,8 @@ gold_batch = 'gold'
 hdfs_conn = BaseHook.get_connection('dshop_hdfs')
 gp_conn = BaseHook.get_connection('dshop_gp')
 
-hdfs_url = 'http://' + hdfs_conn.host + ":" + str(hdfs_conn.port)
-spark_driver_path = gp_conn.get_extra().get('extra__jdbc__drv_path')
+hdfs_url = 'http://' + hdfs_conn.host + ':' + str(hdfs_conn.port)
+spark_driver_path = '/home/user/shared_folder/postgresql-42.2.23.jar'
 hdfs_user = hdfs_conn.login
 
 gp_url = 'jdbc:postgresql://' + gp_conn.host + ':' + str(gp_conn.port) + '/' + gp_conn.schema

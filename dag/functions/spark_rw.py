@@ -3,7 +3,7 @@ from pyspark.sql import SparkSession
 from airflow.hooks.base_hook import BaseHook
 
 gp_conn = BaseHook.get_connection('dshop_gp')
-spark_driver_path = gp_conn.get_extra().get('extra__jdbc__drv_path')
+spark_driver_path = '/home/user/shared_folder/postgresql-42.2.23.jar'
 
 def read_from_hdfs_with_spark(batch, current_date, df_name, df_format):
     spark = SparkSession.builder \

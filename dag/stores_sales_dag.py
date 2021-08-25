@@ -6,7 +6,6 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.operators.dummy_operator import DummyOperator
 from pyspark.sql.types import StringType, IntegerType, DateType
 from pyspark.sql import SparkSession
-from functions.spark_rw import read_from_hdfs_with_spark, delete_duplicate, write_to_hdfs_with_spark
 from functions.load_functions import upload_dims_operators, upload_facts_operators
 from airflow.hooks.base_hook import BaseHook
 
@@ -17,6 +16,7 @@ gold_batch = 'gold'
 hdfs_conn = BaseHook.get_connection('dshop_hdfs')
 gp_conn = BaseHook.get_connection('dshop_gp')
 
+hdfs_url = 'http://' + hdfs_conn.host + ':' + str(hdfs_conn.port)
 spark_driver_path = '/home/user/shared_folder/postgresql-42.2.23.jar'
 
 gp_url = 'jdbc:postgresql://' + gp_conn.host + ':' + str(gp_conn.port) + '/' + gp_conn.schema
@@ -41,13 +41,15 @@ fact_dfs = [
 
 
 def silver_preparation():
+    spark = SparkSession.builder.master(hdfs_url).getOrCreate()
     current_date = datetime.today().date()
     all_dfs = dimension_dfs + fact_dfs
     for df in all_dfs:
-        bronze_df = read_from_hdfs_with_spark(bronze_batch, current_date, df, '.csv')
-        delete_duplicate(bronze_df)
-        write_to_hdfs_with_spark(silver_batch, bronze_df)
-
+        bronze_df = spark.read.load(os.path.join("/", 'datalake', bronze_batch, str(current_date), df + '.csv')
+                           , header="true"
+                           , inferSchema="true"
+                           , format='.csv')
+        bronze_df.write.parquet(os.path.join('/', 'datalake', silver_batch, df), mode='overwrite')
 
 def gold_preparation():
     spark = SparkSession.builder \

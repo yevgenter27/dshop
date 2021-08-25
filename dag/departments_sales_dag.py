@@ -8,7 +8,6 @@ from airflow.operators.dummy_operator import DummyOperator
 from pyspark.sql.types import StringType, IntegerType, DateType
 from hdfs import InsecureClient
 from pyspark.sql import SparkSession
-from functions.spark_rw import read_from_hdfs_with_spark, delete_duplicate, write_to_hdfs_with_spark
 from functions.load_functions import upload_dims_operators
 from functions.api_oos import download_from_api
 from airflow.hooks.base_hook import BaseHook
@@ -49,14 +48,21 @@ def upload_fact_df_to_bronze():
 
 
 def silver_preparation():
+    spark = SparkSession.builder.master(hdfs_url).getOrCreate()
     current_date = datetime.today().date()
     for df in dimension_dfs:
-        bronze_df = read_from_hdfs_with_spark(bronze_batch, current_date, df, '.csv')
-        delete_duplicate(bronze_df)
-        write_to_hdfs_with_spark(silver_batch, bronze_df)
+        bronze_df = spark.read.load(os.path.join("/", 'datalake', bronze_batch, str(current_date), df + '.csv')
+                           , header="true"
+                           , inferSchema="true"
+                           , format='.csv')
+        bronze_df.distinct()
+        bronze_df.write.parquet(os.path.join('/', 'datalake', silver_batch, df), mode='overwrite')
 
-    bronze_oos_df = read_from_hdfs_with_spark(bronze_batch, current_date, fact_oos_df, '.json')
-    write_to_hdfs_with_spark(silver_batch, bronze_oos_df)
+    bronze_oos_df = spark.read.load(os.path.join("/", 'datalake', bronze_batch, str(current_date), fact_oos_df + '.json')
+                           , header="true"
+                           , inferSchema="true"
+                           , format='.json')
+    bronze_oos_df.write.parquet(os.path.join('/', 'datalake', silver_batch, fact_oos_df), mode='overwrite')
 
 
 def gold_preparation():

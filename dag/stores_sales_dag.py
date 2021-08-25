@@ -1,4 +1,5 @@
 import os.path
+import logging
 import pyspark.sql.functions as F
 from datetime import datetime
 from airflow import DAG
@@ -41,6 +42,7 @@ fact_dfs = [
 
 
 def silver_preparation():
+    logging.info('SILVER PREPARATION >>>')
     spark = SparkSession.builder.master(hdfs_url).getOrCreate()
     current_date = datetime.today().date()
     all_dfs = dimension_dfs + fact_dfs
@@ -49,9 +51,13 @@ def silver_preparation():
                            , header="true"
                            , inferSchema="true"
                            , format='.csv')
+        logging.info(f'Load dataframe {df} to hdfs silver [.parquet]')
         bronze_df.write.parquet(os.path.join('/', 'datalake', silver_batch, df), mode='overwrite')
+        logging.info('process success!')
+
 
 def gold_preparation():
+    logging.info('GOLD PREPARATION >>>')
     spark = SparkSession.builder \
         .config('spark.driver.extraClassPath'
                 , spark_driver_path) \
@@ -92,8 +98,13 @@ def gold_preparation():
         .withColumn("products_qty", F.col('products_qty').cast(IntegerType())) \
         .withColumn("date", F.col('date').cast(DateType()))
 
+    logging.info(f'Load dataframe {fact_store_sales_delta} to greenplum [.parquet]')
     fact_store_sales_delta.write.jdbc(gp_url, table=fact_stores_sales_df_name, properties=gp_properties, mode='append')
-    fact_store_sales_delta.write.parquet(os.path.join("/", 'datalake', gold_batch, fact_stores_sales_df_name), mode='append')
+    logging.info('process success!')
+
+    logging.info(f'Load dataframe {fact_store_sales_delta} to hdfs gold [.parquet]')
+    fact_store_sales_delta.write.parquet(os.path.join("/", 'datalake', gold_batch, fact_store_sales_delta), mode='append')
+    logging.info('process success!')
 
 
 dag = DAG(

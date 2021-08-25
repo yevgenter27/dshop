@@ -6,7 +6,7 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.operators.dummy_operator import DummyOperator
 from pyspark.sql.types import StringType, IntegerType, DateType
 from pyspark.sql import SparkSession
-from functions.load_functions import upload_dims_operators, upload_facts_operators
+from functions.load_functions import operators_load_dm, operators_load_fc
 from airflow.hooks.base_hook import BaseHook
 
 bronze_batch = 'bronze'
@@ -97,7 +97,7 @@ def gold_preparation():
 
 
 dag = DAG(
-    dag_id="stores_sales_dag",
+    dag_id="dshop_stores_sales_dag",
     description="Define and upload daily stores sales information",
     start_date=datetime(2021, 8, 1, 14, 30),
     end_date=datetime(2022, 8, 1, 14, 30),
@@ -129,8 +129,8 @@ dummy_finish = DummyOperator(
     dag=dag
 )
 
-dummy_start >> [*upload_dims_operators(dag, dimension_dfs),
-                *upload_facts_operators(dag, fact_dfs)] \
+dummy_start >> [*operators_load_dm(dag, dimension_dfs),
+                *operators_load_fc(dag, fact_dfs)] \
             >> silver_preparation_task \
             >> gold_preparation_task >> \
 dummy_finish
